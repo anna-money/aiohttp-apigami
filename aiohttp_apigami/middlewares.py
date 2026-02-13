@@ -72,10 +72,10 @@ async def validation_middleware(request: web.Request, handler: Handler) -> web.S
             request[sch.put_into] = data
 
         # Otherwise, store the validated data in the default key
-        elif data and result is _missing:
+        elif result is _missing:
             result = data
         else:
-            logger.error("Multiple schemas provided, but no put_into specified. Using the first one only.")
+            logger.warning("Multiple schemas provided, but no put_into specified. Using the first one only.")
 
     # For backward compatibility, if no validated data is provided, use the list
     result = [] if result is _missing else result

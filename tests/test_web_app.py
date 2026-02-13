@@ -317,7 +317,7 @@ async def test_middleware_multiple_schemas_without_put_into(
     client = await aiohttp_client(app)
 
     # Set caplog level to capture all logs
-    caplog.set_level(logging.ERROR)
+    caplog.set_level(logging.WARNING)
 
     # Test with different values in JSON vs querystring
     json_data = {"id": 1, "name": "json_name"}
@@ -337,6 +337,39 @@ async def test_middleware_multiple_schemas_without_put_into(
 
     # Verify the warning was logged about multiple schemas
     assert "Multiple schemas provided, but no put_into specified. Using the first one only." in caplog.text
+
+
+async def test_middleware_single_schema_empty_data_no_spurious_warning(
+    aiohttp_client: AiohttpClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a single schema with empty data does not trigger a spurious 'Multiple schemas' warning."""
+
+    @request_schema(RequestSchema, location="querystring")
+    async def test_handler(request: web.Request) -> web.Response:
+        data = request["data"]
+        return web.json_response({"result": data})
+
+    app = web.Application()
+    setup_aiohttp_apispec(
+        app=app,
+        title="Test API",
+        version="0.0.1",
+    )
+    app.middlewares.append(validation_middleware)
+    app.router.add_get("/test", test_handler)
+
+    client = await aiohttp_client(app)
+    caplog.set_level(logging.WARNING)
+
+    # Send request with no querystring parameters so validated data is {}
+    resp = await client.get("/test")
+
+    assert resp.status == 200
+    result = await resp.json()
+    assert result["result"] == {}
+
+    # No "Multiple schemas" warning should appear
+    assert "Multiple schemas provided" not in caplog.text
 
 
 async def test_middleware_with_class_based_view(aiohttp_app: Any) -> None:
