@@ -72,9 +72,9 @@ Resolves anna-money/aiohttp-apigami#110.
 
 ### Task 4: Verify acceptance criteria
 
-- [ ] Run full test suite (`make test` or `pytest`)
-- [ ] Run linter (`make lint` or configured pre-commit)
-- [ ] Verify coverage on new branches in `core.py` exercised (target 80%+ overall, 100% on new code paths)
+- [x] Run full test suite (`make test` or `pytest`)
+- [x] Run linter (`make lint` or configured pre-commit)
+- [x] Verify coverage on new branches in `core.py` exercised (target 80%+ overall, 100% on new code paths)
 
 ### Task 5: Finalize
 
