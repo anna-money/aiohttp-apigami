@@ -72,7 +72,7 @@ def resolver(schema: SchemaType) -> str:
     return name
 
 
-class OpenApiVersion(str, enum.Enum):
+class OpenApiVersion(enum.StrEnum):
     V20 = "2.0"
     V300 = "3.0.0"
     V301 = "3.0.1"

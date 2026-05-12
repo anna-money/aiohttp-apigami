@@ -16,7 +16,7 @@ NAME_SWAGGER_STATIC = "swagger.static"
 
 
 @enum.unique
-class LayoutOption(str, enum.Enum):
+class LayoutOption(enum.StrEnum):
     Base = "BaseLayout"
     Standalone = "StandaloneLayout"
 
