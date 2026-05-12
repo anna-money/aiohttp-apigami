@@ -78,5 +78,5 @@ Resolves anna-money/aiohttp-apigami#110.
 
 ### Task 5: Finalize
 
-- [ ] Update `CLAUDE.md` if internal patterns changed
-- [ ] Move this plan to `docs/plans/completed/`
+- [x] Update `CLAUDE.md` if internal patterns changed (skipped — no `CLAUDE.md` in repo)
+- [x] Move this plan to `docs/plans/completed/`
