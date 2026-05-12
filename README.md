@@ -416,6 +416,53 @@ setup_aiohttp_apispec(app, swagger_path="/docs")
 
 Then navigate to `/docs` in your browser to see the interactive API documentation.
 
+## 🚫 Disabling Spec Generation
+
+You can disable OpenAPI spec generation entirely while keeping request validation working. Useful for tests or production deployments where Swagger UI and the spec endpoint are not needed (skips route scanning, spec building, swagger endpoint, and Swagger UI mounting — saves startup work, especially noticeable with many routes).
+
+Disable via the `generate_spec` parameter:
+
+```python
+setup_aiohttp_apispec(
+    app=app,
+    generate_spec=False,  # skip spec/UI; validation_middleware still works
+)
+```
+
+Or via the `APIGAMI_GENERATE_SPEC` environment variable (used when `generate_spec` is not passed):
+
+```bash
+APIGAMI_GENERATE_SPEC=0 python -m myapp
+```
+
+Accepted env values (case-insensitive): `1`/`true`/`yes`/`on` enable, `0`/`false`/`no`/`off` disable. Invalid values fall back to the default (enabled). An explicit `generate_spec=True`/`False` argument always overrides the env var.
+
+When disabled:
+- Spec endpoint (`url`) is not registered
+- Swagger UI (`swagger_path`) is not mounted
+- Route scanning and spec building are skipped
+- `validation_middleware` still works — the webargs parser, validated data key, and `error_callback` are still configured
+
+### Testing example
+
+Replaces the `patch("AiohttpApiSpec._register")` workaround for tests that don't need OpenAPI:
+
+```python
+import pytest
+from aiohttp import web
+from aiohttp_apigami import setup_aiohttp_apispec, validation_middleware
+
+
+@pytest.fixture
+def app():
+    app = web.Application()
+    app.middlewares.append(validation_middleware)
+    setup_aiohttp_apispec(app, generate_spec=False)
+    return app
+```
+
+Or set `APIGAMI_GENERATE_SPEC=0` in your test runner's environment to disable globally without changing app setup.
+
 ## 🔄 Updating Swagger UI
 
 This package includes Swagger UI <!-- SWAGGER_UI_VERSION_START -->[v5.32.1](https://github.com/swagger-api/swagger-ui/releases/tag/v5.32.1)<!-- SWAGGER_UI_VERSION_END -->.
