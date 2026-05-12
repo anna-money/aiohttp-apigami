@@ -515,3 +515,109 @@ async def test_generate_spec_default_unchanged(monkeypatch: pytest.MonkeyPatch) 
     assert NAME_SWAGGER_SPEC in route_names
     assert SWAGGER_DICT in app
     assert "/x" in app[SWAGGER_DICT]["paths"]
+
+
+@pytest.mark.parametrize("env_value", ["0", "false", "FALSE", "False", "no", "off", " 0 "])
+@pytest.mark.asyncio
+async def test_env_var_disables_when_param_omitted(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """APIGAMI_GENERATE_SPEC=falsy disables spec generation when param omitted."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", env_value)
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC not in route_names
+    assert SWAGGER_DICT not in app
+    # Parser still configured
+    assert APISPEC_PARSER in app
+
+
+@pytest.mark.parametrize("env_value", ["1", "true", "TRUE", "True", "yes", "on", " 1 "])
+@pytest.mark.asyncio
+async def test_env_var_enables_when_param_omitted(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """APIGAMI_GENERATE_SPEC=truthy enables spec generation (same as default)."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", env_value)
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC in route_names
+    assert SWAGGER_DICT in app
+    assert "/x" in app[SWAGGER_DICT]["paths"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_true_overrides_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit generate_spec=True overrides APIGAMI_GENERATE_SPEC=0."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", "0")
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True, generate_spec=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC in route_names
+    assert SWAGGER_DICT in app
+
+
+@pytest.mark.asyncio
+async def test_explicit_false_overrides_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit generate_spec=False overrides APIGAMI_GENERATE_SPEC=1."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", "1")
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True, generate_spec=False)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC not in route_names
+    assert SWAGGER_DICT not in app
+
+
+@pytest.mark.parametrize("env_value", ["maybe", "", "2", "yesno", "random"])
+@pytest.mark.asyncio
+async def test_invalid_env_value_falls_back_to_default_true(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """Invalid APIGAMI_GENERATE_SPEC value falls back to default True."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", env_value)
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC in route_names
+    assert SWAGGER_DICT in app

@@ -53,14 +53,14 @@ Resolves anna-money/aiohttp-apigami#110.
 **Files:**
 - Modify: `tests/test_register.py`
 
-- [ ] Confirm `_resolve_generate_spec` reads env var only when param is `None`; explicit `generate_spec=True` or `generate_spec=False` always wins
-- [ ] Add tests using `monkeypatch.setenv`:
+- [x] Confirm `_resolve_generate_spec` reads env var only when param is `None`; explicit `generate_spec=True` or `generate_spec=False` always wins
+- [x] Add tests using `monkeypatch.setenv`:
   - `APIGAMI_GENERATE_SPEC=0` disables when param omitted
   - `APIGAMI_GENERATE_SPEC=false` disables (case-insensitive)
   - `APIGAMI_GENERATE_SPEC=1` enables (same as default)
   - Explicit `generate_spec=True` overrides `APIGAMI_GENERATE_SPEC=0`
   - Invalid env value (e.g. `maybe`) falls back to default `True`
-- [ ] Run test suite — must pass before task 3
+- [x] Run test suite — must pass before task 3
 
 ### Task 3: Documentation
 
