@@ -2,7 +2,7 @@ import pytest
 from aiohttp import web
 
 from aiohttp_apigami import AiohttpApiSpec, docs, request_schema, setup_aiohttp_apispec
-from aiohttp_apigami.constants import APISPEC_PARSER, APISPEC_VALIDATED_DATA_NAME
+from aiohttp_apigami.constants import APISPEC_PARSER, APISPEC_VALIDATED_DATA_NAME, SWAGGER_DICT
 from aiohttp_apigami.core import OpenApiVersion
 from aiohttp_apigami.swagger_ui import NAME_SWAGGER_SPEC
 from tests.fixtures.schemas import RequestSchema
@@ -418,3 +418,219 @@ async def test_setup_aiohttp_apispec_with_subapps() -> None:
     # If a new route needs to be added after setup:
     # 1. Either use in_place=False to register routes on startup
     # 2. Or manually re-register all routes by calling setup again
+
+
+@pytest.mark.asyncio
+async def test_generate_spec_false_skips_spec_route_and_dict() -> None:
+    """generate_spec=False must skip swagger.json route and SWAGGER_DICT build."""
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    initial_route_count = len(app.router.routes())
+    initial_startup_count = len(app.on_startup)
+
+    setup_aiohttp_apispec(
+        app=app,
+        title="Test API",
+        version="1.0.0",
+        in_place=True,
+        generate_spec=False,
+    )
+
+    # Swagger spec route not added
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC not in route_names
+    assert len(app.router.routes()) == initial_route_count
+
+    # SWAGGER_DICT not populated (even with in_place=True)
+    assert SWAGGER_DICT not in app
+
+    # No on_startup handler added either
+    assert len(app.on_startup) == initial_startup_count
+
+
+@pytest.mark.asyncio
+async def test_generate_spec_false_still_registers_parser() -> None:
+    """generate_spec=False must still configure parser + request data name."""
+    app = web.Application()
+
+    def cb(*args: object, **kwargs: object) -> None:
+        pass
+
+    setup_aiohttp_apispec(
+        app=app,
+        title="Test API",
+        version="1.0.0",
+        request_data_name="payload",
+        error_callback=cb,
+        generate_spec=False,
+    )
+
+    assert app[APISPEC_VALIDATED_DATA_NAME] == "payload"
+    assert APISPEC_PARSER in app
+    assert app[APISPEC_PARSER].error_callback is cb
+
+
+@pytest.mark.asyncio
+async def test_generate_spec_false_with_swagger_path_no_ui() -> None:
+    """generate_spec=False + swagger_path must NOT register Swagger UI routes."""
+    app = web.Application()
+
+    setup_aiohttp_apispec(
+        app=app,
+        title="Test API",
+        version="1.0.0",
+        swagger_path="/docs",
+        generate_spec=False,
+    )
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert "swagger.docs" not in route_names
+    assert "swagger.static" not in route_names
+    assert NAME_SWAGGER_SPEC not in route_names
+
+
+@pytest.mark.asyncio
+async def test_generate_spec_default_unchanged() -> None:
+    """Default (generate_spec=None, env unset) behaves identically to old behavior."""
+    # Env var cleanup handled by autouse fixture in conftest.py
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True)
+
+    # Swagger route registered, SWAGGER_DICT populated
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC in route_names
+    assert SWAGGER_DICT in app
+    assert "/x" in app[SWAGGER_DICT]["paths"]
+
+
+@pytest.mark.parametrize("env_value", ["0", "false", "FALSE", "False", "no", "off", " 0 "])
+@pytest.mark.asyncio
+async def test_env_var_disables_when_param_omitted(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """APIGAMI_GENERATE_SPEC=falsy disables spec generation when param omitted."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", env_value)
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC not in route_names
+    assert SWAGGER_DICT not in app
+    # Parser still configured
+    assert APISPEC_PARSER in app
+
+
+@pytest.mark.parametrize("env_value", ["1", "true", "TRUE", "True", "yes", "on", " 1 "])
+@pytest.mark.asyncio
+async def test_env_var_enables_when_param_omitted(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """APIGAMI_GENERATE_SPEC=truthy enables spec generation (same as default)."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", env_value)
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC in route_names
+    assert SWAGGER_DICT in app
+    assert "/x" in app[SWAGGER_DICT]["paths"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_true_overrides_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit generate_spec=True overrides APIGAMI_GENERATE_SPEC=0."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", "0")
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True, generate_spec=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC in route_names
+    assert SWAGGER_DICT in app
+
+
+@pytest.mark.asyncio
+async def test_explicit_false_overrides_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit generate_spec=False overrides APIGAMI_GENERATE_SPEC=1."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", "1")
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True, generate_spec=False)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC not in route_names
+    assert SWAGGER_DICT not in app
+
+
+@pytest.mark.parametrize("env_value", ["maybe", "", "2", "yesno", "random"])
+@pytest.mark.asyncio
+async def test_invalid_env_value_falls_back_to_default_true(monkeypatch: pytest.MonkeyPatch, env_value: str) -> None:
+    """Invalid APIGAMI_GENERATE_SPEC value falls back to default True."""
+    monkeypatch.setenv("APIGAMI_GENERATE_SPEC", env_value)
+
+    app = web.Application()
+
+    @docs(tags=["x"], summary="x")
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/x", handler)
+
+    setup_aiohttp_apispec(app=app, title="Test API", version="1.0.0", in_place=True)
+
+    route_names = {route.name for route in app.router.routes() if route.name is not None}
+    assert NAME_SWAGGER_SPEC in route_names
+    assert SWAGGER_DICT in app
+
+
+@pytest.mark.parametrize("bad_value", ["0", "false", "off", "1", "true", 0, 1, "", "yes"])
+def test_non_bool_generate_spec_raises_type_error(bad_value: object) -> None:
+    """Non-bool explicit generate_spec values are rejected to avoid truthy-string footguns."""
+    app = web.Application()
+    with pytest.raises(TypeError, match="generate_spec must be bool or None"):
+        setup_aiohttp_apispec(
+            app=app,
+            title="Test API",
+            version="1.0.0",
+            in_place=True,
+            generate_spec=bad_value,  # type: ignore[arg-type]
+        )

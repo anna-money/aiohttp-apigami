@@ -1,5 +1,6 @@
 import enum
 import logging.config
+import os
 from typing import Any
 
 from aiohttp import web
@@ -14,6 +15,42 @@ from .swagger_ui import NAME_SWAGGER_SPEC, LayoutOption, SwaggerUIManager
 from .typedefs import SchemaNameResolver, SchemaType
 
 logger = logging.getLogger(__name__)
+
+_ENV_VAR = "APIGAMI_GENERATE_SPEC"
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+_FALSY = frozenset({"0", "false", "no", "off"})
+
+
+def _resolve_generate_spec(generate_spec: bool | None) -> bool:
+    """Resolve generate_spec from explicit param or APIGAMI_GENERATE_SPEC env var.
+
+    Explicit param wins. Env var parsed case-insensitive: truthy → True, falsy → False.
+    Unset or invalid → default True.
+    """
+    if generate_spec is not None:
+        if not isinstance(generate_spec, bool):
+            raise TypeError(
+                f"generate_spec must be bool or None, got {type(generate_spec).__name__}. "
+                f"For string-based config, use the {_ENV_VAR} env var instead."
+            )
+        return generate_spec
+    raw = os.environ.get(_ENV_VAR)
+    if raw is None:
+        return True
+    value = raw.strip().lower()
+    if value in _TRUTHY:
+        return True
+    if value in _FALSY:
+        return False
+    logger.warning(
+        "%s=%r is not a recognized boolean; defaulting to True. "
+        "Accepted values (case-insensitive): %s for True, %s for False.",
+        _ENV_VAR,
+        raw,
+        sorted(_TRUTHY),
+        sorted(_FALSY),
+    )
+    return True
 
 
 def resolver(schema: SchemaType) -> str:
@@ -45,6 +82,7 @@ class OpenApiVersion(str, enum.Enum):
 
 class AiohttpApiSpec:
     __slots__ = (
+        "_generate_spec",
         "_registered",
         "_request_data_name",
         "_route_processor",
@@ -70,6 +108,7 @@ class AiohttpApiSpec:
         schema_name_resolver: SchemaNameResolver = resolver,
         openapi_version: str | OpenApiVersion = OpenApiVersion.V20,
         swagger_layout: LayoutOption = LayoutOption.Standalone,
+        generate_spec: bool | None = None,
         **options: Any,
     ):
         try:
@@ -94,6 +133,7 @@ class AiohttpApiSpec:
         self.prefix = prefix
         self._registered = False
         self._request_data_name = request_data_name
+        self._generate_spec = _resolve_generate_spec(generate_spec)
 
         # Register app if provided
         if app is not None:
@@ -115,12 +155,18 @@ class AiohttpApiSpec:
             logger.warning("API spec is already registered. Skipping registration.")
             return None
 
-        # Set up app configuration
+        # Set up app configuration — always done so validation_middleware works
+        # even when spec generation is disabled
         app[APISPEC_VALIDATED_DATA_NAME] = self._request_data_name
         app[APISPEC_PARSER] = parser
 
         if self.error_callback:
             parser.error_callback = self.error_callback
+
+        if not self._generate_spec:
+            # Skip route scanning, spec build, swagger endpoint, and Swagger UI
+            self._registered = True
+            return None
 
         # Register routes and generate API spec
         if in_place:
@@ -175,6 +221,7 @@ def setup_aiohttp_apispec(
     schema_name_resolver: SchemaNameResolver = resolver,
     openapi_version: str | OpenApiVersion = OpenApiVersion.V20,
     swagger_layout: LayoutOption = LayoutOption.Standalone,
+    generate_spec: bool | None = None,
     **options: Any,
 ) -> AiohttpApiSpec:
     """
@@ -243,6 +290,17 @@ def setup_aiohttp_apispec(
     :param openapi_version: version of OpenAPI schema
     :param swagger_layout: layout of Swagger UI (``LayoutOption.Standalone`` by default).
                             See ``LayoutOption`` for more details.
+    :param generate_spec: when ``False``, skip route scanning, OpenAPI spec
+                          building, swagger.json endpoint, and Swagger UI mount.
+                          The parser and ``request_data_name`` are still
+                          registered, so ``validation_middleware`` keeps working.
+                          When ``None`` (default), the value is read from the
+                          ``APIGAMI_GENERATE_SPEC`` env var (truthy
+                          ``1``/``true``/``yes``/``on`` enables, falsy
+                          ``0``/``false``/``no``/``off`` disables,
+                          case-insensitive). Unset or invalid env values fall
+                          back to ``True``. An explicit boolean always wins
+                          over the env var.
     :param options: any apispec.APISpec options
     :return: return instance of AiohttpApiSpec class
     :rtype: AiohttpApiSpec
@@ -261,5 +319,6 @@ def setup_aiohttp_apispec(
         schema_name_resolver=schema_name_resolver,
         openapi_version=openapi_version,
         swagger_layout=swagger_layout,
+        generate_spec=generate_spec,
         **options,
     )

@@ -1,11 +1,14 @@
 """Pytest configuration file."""
 # ruff: noqa: F403
 
+from collections.abc import Iterator
+
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient
 from aiohttp.typedefs import Handler, Middleware
 from pytest_aiohttp.plugin import AiohttpClient
+from webargs.aiohttpparser import parser as _webargs_parser
 
 from aiohttp_apigami import setup_aiohttp_apispec, validation_middleware
 from aiohttp_apigami.typedefs import ErrorHandler
@@ -13,6 +16,18 @@ from aiohttp_apigami.typedefs import ErrorHandler
 # Import all fixtures - fixture modules import our handler classes
 from tests.fixtures import *
 from tests.fixtures.handlers import BasicHandlers, EchoHandlers
+
+
+@pytest.fixture(autouse=True)
+def _isolate_apigami_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    # webargs parser is a module-level singleton; AiohttpApiSpec.register mutates
+    # its error_callback. Snapshot/restore prevents cross-test leakage.
+    monkeypatch.delenv("APIGAMI_GENERATE_SPEC", raising=False)
+    original_callback = _webargs_parser.error_callback
+    try:
+        yield
+    finally:
+        _webargs_parser.error_callback = original_callback
 
 
 @pytest.fixture(params=[True, False])
