@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated Swagger UI to v5.32.5 ([#102](https://github.com/anna-money/aiohttp-apigami/pull/102), [#103](https://github.com/anna-money/aiohttp-apigami/pull/103), [#109](https://github.com/anna-money/aiohttp-apigami/pull/109)).
 - Bumped `codecov/codecov-action` from 5 to 6 ([#104](https://github.com/anna-money/aiohttp-apigami/pull/104)).
 - Bumped `pypa/gh-action-pypi-publish` from 1.13.0 to 1.14.0 ([#106](https://github.com/anna-money/aiohttp-apigami/pull/106)).
+- Set ruff `target-version` to `py311` matching `requires-python`. Internal `OpenApiVersion` and `LayoutOption` enums converted from `(str, enum.Enum)` mixin to `enum.StrEnum`.
 
 ## [0.6.0] - 2026-02-13
 
