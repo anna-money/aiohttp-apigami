@@ -418,7 +418,7 @@ Then navigate to `/docs` in your browser to see the interactive API documentatio
 
 ## 🚫 Disabling Spec Generation
 
-You can disable OpenAPI spec generation entirely while keeping request validation working. Useful for tests or production deployments where Swagger UI and the spec endpoint are not needed (skips route scanning, spec building, swagger endpoint, and Swagger UI mounting — typically saves ~20ms per app startup).
+You can disable OpenAPI spec generation entirely while keeping request validation working. Useful for tests or production deployments where Swagger UI and the spec endpoint are not needed (skips route scanning, spec building, swagger endpoint, and Swagger UI mounting — saves startup work, especially noticeable with many routes).
 
 Disable via the `generate_spec` parameter:
 

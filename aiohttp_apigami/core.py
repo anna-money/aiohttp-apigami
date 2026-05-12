@@ -37,6 +37,14 @@ def _resolve_generate_spec(generate_spec: bool | None) -> bool:
         return True
     if value in _FALSY:
         return False
+    logger.warning(
+        "%s=%r is not a recognized boolean; defaulting to True. "
+        "Accepted values (case-insensitive): %s for True, %s for False.",
+        _ENV_VAR,
+        raw,
+        sorted(_TRUTHY),
+        sorted(_FALSY),
+    )
     return True
 
 

@@ -496,10 +496,9 @@ async def test_generate_spec_false_with_swagger_path_no_ui() -> None:
 
 
 @pytest.mark.asyncio
-async def test_generate_spec_default_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_generate_spec_default_unchanged() -> None:
     """Default (generate_spec=None, env unset) behaves identically to old behavior."""
-    monkeypatch.delenv("APIGAMI_GENERATE_SPEC", raising=False)
-
+    # Env var cleanup handled by autouse fixture in conftest.py
     app = web.Application()
 
     @docs(tags=["x"], summary="x")
