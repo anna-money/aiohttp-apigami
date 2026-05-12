@@ -67,8 +67,8 @@ Resolves anna-money/aiohttp-apigami#110.
 **Files:**
 - Modify: `README.md`
 
-- [ ] Add short section near "Setup Function" / quickstart describing `generate_spec` parameter and `APIGAMI_GENERATE_SPEC` env var, with testing example replacing the `patch("AiohttpApiSpec._register")` workaround from the issue
-- [ ] Run test suite — must pass before task 4
+- [x] Add short section near "Setup Function" / quickstart describing `generate_spec` parameter and `APIGAMI_GENERATE_SPEC` env var, with testing example replacing the `patch("AiohttpApiSpec._register")` workaround from the issue
+- [x] Run test suite — must pass before task 4
 
 ### Task 4: Verify acceptance criteria
 
