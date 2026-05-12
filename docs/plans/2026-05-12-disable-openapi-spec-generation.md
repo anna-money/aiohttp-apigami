@@ -36,17 +36,17 @@ Resolves anna-money/aiohttp-apigami#110.
 - Modify: `aiohttp_apigami/core.py`
 - Modify: `tests/test_register.py`
 
-- [ ] Add `_ENV_VAR = "APIGAMI_GENERATE_SPEC"` constant and helper `_resolve_generate_spec(generate_spec: bool | None) -> bool` — returns `generate_spec` if not None, else parses env var (truthy/falsy strings), defaults to `True` when unset or invalid
-- [ ] Add `generate_spec: bool | None = None` kwarg to `AiohttpApiSpec.__init__`; add `_generate_spec` to `__slots__` and store resolved value
-- [ ] In `register()`: always set `app[APISPEC_VALIDATED_DATA_NAME]`, `app[APISPEC_PARSER]`, and `parser.error_callback` (so `validation_middleware` works); when `self._generate_spec is False`, skip `_register` / `_register_on_startup`, skip `_setup_spec_endpoint`, skip swagger UI setup; set `self._registered = True` and return
-- [ ] Add `generate_spec: bool | None = None` kwarg to `setup_aiohttp_apispec` and forward to `AiohttpApiSpec`
-- [ ] Update docstring on `setup_aiohttp_apispec` to document `generate_spec` semantics and `APIGAMI_GENERATE_SPEC` env var fallback
-- [ ] Write tests in `tests/test_register.py`:
+- [x] Add `_ENV_VAR = "APIGAMI_GENERATE_SPEC"` constant and helper `_resolve_generate_spec(generate_spec: bool | None) -> bool` — returns `generate_spec` if not None, else parses env var (truthy/falsy strings), defaults to `True` when unset or invalid
+- [x] Add `generate_spec: bool | None = None` kwarg to `AiohttpApiSpec.__init__`; add `_generate_spec` to `__slots__` and store resolved value
+- [x] In `register()`: always set `app[APISPEC_VALIDATED_DATA_NAME]`, `app[APISPEC_PARSER]`, and `parser.error_callback` (so `validation_middleware` works); when `self._generate_spec is False`, skip `_register` / `_register_on_startup`, skip `_setup_spec_endpoint`, skip swagger UI setup; set `self._registered = True` and return
+- [x] Add `generate_spec: bool | None = None` kwarg to `setup_aiohttp_apispec` and forward to `AiohttpApiSpec`
+- [x] Update docstring on `setup_aiohttp_apispec` to document `generate_spec` semantics and `APIGAMI_GENERATE_SPEC` env var fallback
+- [x] Write tests in `tests/test_register.py`:
   - `generate_spec=False` skips swagger spec route and `SWAGGER_DICT` population
   - `generate_spec=False` still configures `APISPEC_PARSER` + `APISPEC_VALIDATED_DATA_NAME` so middleware works
   - `generate_spec=False` + `swagger_path` does not register Swagger UI routes
   - Default (`generate_spec=None`, env unset) behaves identically to current behavior
-- [ ] Run project test suite — must pass before task 2
+- [x] Run project test suite — must pass before task 2
 
 ### Task 2: Env var fallback support
 
