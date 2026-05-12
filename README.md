@@ -441,7 +441,7 @@ When disabled:
 - Spec endpoint (`url`) is not registered
 - Swagger UI (`swagger_path`) is not mounted
 - Route scanning and spec building are skipped
-- `validation_middleware` still works — the webargs parser and validated data key are still configured
+- `validation_middleware` still works — the webargs parser, validated data key, and `error_callback` are still configured
 
 ### Testing example
 
