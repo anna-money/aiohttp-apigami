@@ -620,3 +620,17 @@ async def test_invalid_env_value_falls_back_to_default_true(monkeypatch: pytest.
     route_names = {route.name for route in app.router.routes() if route.name is not None}
     assert NAME_SWAGGER_SPEC in route_names
     assert SWAGGER_DICT in app
+
+
+@pytest.mark.parametrize("bad_value", ["0", "false", "off", "1", "true", 0, 1, "", "yes"])
+def test_non_bool_generate_spec_raises_type_error(bad_value: object) -> None:
+    """Non-bool explicit generate_spec values are rejected to avoid truthy-string footguns."""
+    app = web.Application()
+    with pytest.raises(TypeError, match="generate_spec must be bool or None"):
+        setup_aiohttp_apispec(
+            app=app,
+            title="Test API",
+            version="1.0.0",
+            in_place=True,
+            generate_spec=bad_value,  # type: ignore[arg-type]
+        )

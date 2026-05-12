@@ -28,6 +28,11 @@ def _resolve_generate_spec(generate_spec: bool | None) -> bool:
     Unset or invalid → default True.
     """
     if generate_spec is not None:
+        if not isinstance(generate_spec, bool):
+            raise TypeError(
+                f"generate_spec must be bool or None, got {type(generate_spec).__name__}. "
+                f"For string-based config, use the {_ENV_VAR} env var instead."
+            )
         return generate_spec
     raw = os.environ.get(_ENV_VAR)
     if raw is None:
