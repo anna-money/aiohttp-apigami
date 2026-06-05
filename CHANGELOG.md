@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-05
+
+### Changed
+
+- Updated Swagger UI to v5.32.6 ([#114](https://github.com/anna-money/aiohttp-apigami/pull/114)).
+
 ### Fixed
 
 - `fields.Decimal` combined with `validate.Range` no longer breaks the spec endpoint. apispec serializes the validator `min`/`max` bounds back through the field, producing `Decimal` values that `json.dumps` cannot serialize, so `swagger.json` returned a 500. `swagger_dict()` now converts `Decimal` values to `int`/`float`. Resolves [#115](https://github.com/anna-money/aiohttp-apigami/issues/115).
