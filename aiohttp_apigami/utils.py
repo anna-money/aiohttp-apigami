@@ -1,4 +1,5 @@
 from dataclasses import is_dataclass
+from decimal import Decimal
 from inspect import isclass
 from string import Formatter
 from typing import Any, TypeVar, get_origin
@@ -81,3 +82,23 @@ def resolve_schema_instance(schema: SchemaType | type[TDataclass]) -> m.Schema:
         return mr.schema(schema)
 
     raise ValueError(f"Invalid schema type: {schema}")
+
+
+def make_json_serializable(value: Any) -> Any:
+    """Recursively convert spec values into JSON-serializable types.
+
+    apispec serializes ``validate.Range`` bounds back through the field they are
+    attached to (see ``FieldConverterMixin.field2range``). For a ``fields.Decimal``
+    field this yields ``Decimal`` ``minimum``/``maximum`` values, which the stdlib
+    ``json`` encoder used by ``web.json_response`` cannot serialize.
+
+    Decimals are converted to ``int`` when integral and ``float`` otherwise.
+    See https://github.com/anna-money/aiohttp-apigami/issues/115.
+    """
+    if isinstance(value, dict):
+        return {k: make_json_serializable(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [make_json_serializable(v) for v in value]
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    return value
