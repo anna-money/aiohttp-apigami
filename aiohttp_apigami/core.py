@@ -1,7 +1,7 @@
 import enum
 import logging.config
 import os
-from typing import Any
+from typing import Any, cast
 
 from aiohttp import web
 from apispec import APISpec
@@ -13,6 +13,7 @@ from .plugin import ApigamiPlugin
 from .route_processor import RouteProcessor
 from .swagger_ui import NAME_SWAGGER_SPEC, LayoutOption, SwaggerUIManager
 from .typedefs import SchemaNameResolver, SchemaType
+from .utils import make_json_serializable
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ class AiohttpApiSpec:
 
     def swagger_dict(self) -> dict[str, Any]:
         """Returns swagger spec representation in JSON format"""
-        return self._spec.to_dict()
+        return cast("dict[str, Any]", make_json_serializable(self._spec.to_dict()))
 
     def register(self, app: web.Application, in_place: bool = False) -> None:
         """Creates spec based on registered app routes and registers needed view"""
