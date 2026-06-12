@@ -7,17 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-12
+
 ### Added
 
-- `use_kwargs` and `marshal_with` aliases (for `request_schema` and `response_schema`), restoring the `aiohttp-apispec` public API.
-- Compatibility shim for the deprecated `aiohttp-apispec` `locations=[...]` argument on `request_schema`: a single-element list is accepted with a `DeprecationWarning`; multiple locations raise `ValueError`.
-- Built-in `flat_error_handler` error callback that restores the flat `aiohttp-apispec` 2.x validation error format (strips the webargs 8 location level from `error.messages`): `setup_aiohttp_apispec(app, error_callback=flat_error_handler)`.
+- `use_kwargs` and `marshal_with` aliases (for `request_schema` and `response_schema`), restoring the `aiohttp-apispec` public API ([#120](https://github.com/anna-money/aiohttp-apigami/pull/120)).
+- Compatibility shim for the deprecated `aiohttp-apispec` `locations=[...]` argument on `request_schema`: a single-element list is accepted with a `DeprecationWarning`; multiple locations raise `ValueError` ([#120](https://github.com/anna-money/aiohttp-apigami/pull/120)).
+- Built-in `flat_error_handler` error callback that restores the flat `aiohttp-apispec` 2.x validation error format (strips the webargs 8 location level from `error.messages`): `setup_aiohttp_apispec(app, error_callback=flat_error_handler)` ([#120](https://github.com/anna-money/aiohttp-apigami/pull/120)).
 
 ### Changed
 
-- **Breaking:** `request_schema` raises `TypeError` on unrecognized keyword arguments instead of silently ignoring them.
-- **Breaking:** when no schema targets the default key, `request["data"]` now defaults to `{}` instead of `[]`, matching `aiohttp-apispec` 2.x.
-- Expanded the "Migration from aiohttp-apispec" README section to cover all known behavioral differences (default parse location, unknown-field handling, schema merging, nested error messages, removed app keys).
+- **Breaking:** `request_schema` raises `TypeError` on unrecognized keyword arguments instead of silently ignoring them ([#120](https://github.com/anna-money/aiohttp-apigami/pull/120)).
+- **Breaking:** when no schema targets the default key, `request["data"]` now defaults to `{}` instead of `[]`, matching `aiohttp-apispec` 2.x ([#120](https://github.com/anna-money/aiohttp-apigami/pull/120)).
+- Expanded the "Migration from aiohttp-apispec" README section to cover all known behavioral differences (default parse location, unknown-field handling, schema merging, nested error messages, removed app keys) ([#120](https://github.com/anna-money/aiohttp-apigami/pull/120)).
 
 ## [0.7.1] - 2026-06-05
 
