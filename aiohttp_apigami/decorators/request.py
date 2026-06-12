@@ -36,6 +36,9 @@ VALID_SCHEMA_LOCATIONS = (
 T = TypeVar("T", bound=HandlerType)
 TDataclass = TypeVar("TDataclass", bound=IDataclass)
 
+# Default request location when neither `location` nor `locations` is provided
+_DEFAULT_LOCATION: ValidLocations = "json"
+
 # Sentinel to tell an explicit `location` apart from the default
 # when the deprecated `locations` kwarg is also passed
 _UNSET: Any = object()
@@ -45,7 +48,7 @@ def _resolve_location(location: ValidLocations, kwargs: dict[str, Any]) -> Valid
     """Resolve `location`, honoring the deprecated aiohttp-apispec `locations` kwarg."""
     locations = kwargs.pop("locations", None)
     if locations is None:
-        return "json" if location is _UNSET else location
+        return _DEFAULT_LOCATION if location is _UNSET else location
 
     warnings.warn(
         "The `locations` argument is deprecated, use `location` instead",
