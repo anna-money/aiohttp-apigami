@@ -406,6 +406,118 @@ setup_aiohttp_apispec(app, error_callback=my_error_handler)
 app.middlewares.extend([intercept_error, validation_middleware])
 ```
 
+## ⚠️ Migration from aiohttp-apispec
+
+**aiohttp-apigami** is a near drop-in replacement for `aiohttp-apispec` 2.x. The setup and decorator APIs are compatible (including the `use_kwargs` / `marshal_with` aliases), but the upgrade from webargs < 6 to webargs 8.x changes validation behavior in several ways. Review the items below before migrating — the first group is **silent**: code imports and runs, but requests are validated differently.
+
+### Silent behavior changes
+
+#### 1. The default parse location is now `json` only
+
+With webargs < 6, `@request_schema(MySchema)` without an explicit location searched `querystring`, `form`, and `json` and used whichever had data. aiohttp-apigami parses **only `json`** by default.
+
+If a handler relied on the multi-location fallback (typically GET endpoints reading query parameters through a bare `@request_schema` / `@use_kwargs`), set the location explicitly:
+
+```python
+@request_schema(MySchema, location="querystring")
+```
+
+#### 2. Unknown request fields now cause 422 errors
+
+webargs < 6 looked up declared schema fields one by one, so extra query parameters or JSON keys were silently ignored. webargs 8 passes the whole payload to the schema, and aiohttp-apigami defers to the schema's `unknown` setting — marshmallow's default is `RAISE`. A request with an unexpected parameter (e.g. `?utm_source=...`) now fails with 422.
+
+To restore the old tolerance, set `unknown` on your schemas (or on a shared base schema):
+
+```python
+import marshmallow as ma
+
+
+class MySchema(ma.Schema):
+    class Meta:
+        unknown = ma.EXCLUDE
+```
+
+#### 3. Multiple schemas without `put_into` no longer merge
+
+`aiohttp-apispec` merged validated data from several `@request_schema` decorators into a single `request["data"]` dict. aiohttp-apigami stores only the **first** schema's data there (and logs a warning). Use `put_into` (or the location shortcuts such as `@querystring_schema`, which set it automatically) to keep each location's data separate:
+
+```python
+@request_schema(BodySchema)  # -> request["data"]
+@request_schema(QuerySchema, location="querystring", put_into="query")  # -> request["query"]
+```
+
+#### 4. Validation error messages are nested by request location
+
+`aiohttp-apispec` relied on webargs < 6, which passed flat field-level messages to the error handler. **aiohttp-apigami** uses webargs 8.x, which nests `ValidationError.messages` under the request location key (`json`, `querystring`, `form`, `headers`, etc.).
+
+**Before (aiohttp-apispec):**
+
+```json
+{
+  "amount": ["Not a valid number."],
+  "reference": ["Missing data for required field."]
+}
+```
+
+**After (aiohttp-apigami):**
+
+```json
+{
+  "json": {
+    "amount": ["Not a valid number."],
+    "reference": ["Missing data for required field."]
+  }
+}
+```
+
+This affects:
+
+- Custom `error_callback` implementations that read `error.messages`
+- API clients that parse the default 422 response body
+
+If your API consumers depend on the old flat format, use the built-in `flat_error_handler`, which strips the location level and responds with 422 exactly like `aiohttp-apispec` 2.x:
+
+```python
+from aiohttp_apigami import flat_error_handler, setup_aiohttp_apispec
+
+setup_aiohttp_apispec(app, error_callback=flat_error_handler)
+```
+
+When validation fails in several locations at once, flattening may overwrite same-named fields — the handler logs an error in that case.
+
+### Loud breaking changes (fail fast)
+
+These surface immediately as exceptions, so they are easy to catch in tests.
+
+#### `locations=[...]` is deprecated — use `location="..."`
+
+The plural `locations` list argument from `aiohttp-apispec` is accepted as a shim: a single-element list works and emits a `DeprecationWarning`. A multi-element list raises `ValueError`, because webargs 8 cannot parse several locations with one schema — split it into one decorator per location:
+
+```python
+# Before (aiohttp-apispec)
+@request_schema(MySchema, locations=["querystring", "form"])
+
+# After (aiohttp-apigami)
+@request_schema(QuerySchema, location="querystring", put_into="query")
+@request_schema(FormSchema, location="form", put_into="form")
+```
+
+#### Two schemas for the same location raise `RuntimeError`
+
+`aiohttp-apispec` allowed stacking several schemas on one location and merged the results. aiohttp-apigami raises `RuntimeError` at decoration time — combine the fields into a single schema instead.
+
+#### Unknown decorator keyword arguments raise `TypeError`
+
+`@request_schema(MySchema, locatoins=[...])` (note the typo) was silently ignored by `aiohttp-apispec`'s `**kwargs`. aiohttp-apigami raises `TypeError` for any unrecognized keyword argument.
+
+#### Internal app keys were removed
+
+`app["_apispec_parser"]` and `app["_apispec_request_data_name"]` no longer exist (replaced by typed, private `AppKey`s). `app["swagger_dict"]` is still available.
+
+### Other differences
+
+- When no schema targets the default key, `request["data"]` defaults to `{}`, matching `aiohttp-apispec` 2.x (aiohttp-apigami < 0.8 used `[]`).
+
 ## 📝 Swagger UI Integration
 
 Enable Swagger UI by adding the `swagger_path` parameter:
