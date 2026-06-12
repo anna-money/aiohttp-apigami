@@ -406,6 +406,88 @@ setup_aiohttp_apispec(app, error_callback=my_error_handler)
 app.middlewares.extend([intercept_error, validation_middleware])
 ```
 
+## ⚠️ Migration from aiohttp-apispec
+
+**aiohttp-apigami** is a near drop-in replacement for `aiohttp-apispec`, with one breaking change to be aware of.
+
+### Validation error messages are nested by request location
+
+`aiohttp-apispec` relied on webargs < 6, which passed flat field-level messages to the error handler. **aiohttp-apigami** uses webargs 8.x, which nests `ValidationError.messages` under the request location key (`json`, `querystring`, `form`, `headers`, etc.).
+
+**Before (aiohttp-apispec):**
+
+```json
+{
+  "amount": ["Not a valid number."],
+  "reference": ["Missing data for required field."]
+}
+```
+
+**After (aiohttp-apigami):**
+
+```json
+{
+  "json": {
+    "amount": ["Not a valid number."],
+    "reference": ["Missing data for required field."]
+  }
+}
+```
+
+This affects:
+
+- Custom `error_callback` implementations that read `error.messages`
+- API clients that parse the default 422 response body
+
+If your API consumers depend on the old flat format, flatten the messages in a custom `error_callback`:
+
+```python
+import json
+import logging
+from typing import Any, NoReturn
+
+from aiohttp import web
+from marshmallow import Schema, ValidationError
+
+logger = logging.getLogger(__name__)
+
+
+def flat_error_handler(
+    error: ValidationError,
+    req: web.Request,
+    schema: Schema,
+    *args: Any,
+    error_status_code: int,
+    error_headers: dict[str, str],
+) -> NoReturn:
+    """Restore the flat aiohttp-apispec error format."""
+    messages = error.messages
+    if isinstance(messages, dict):
+        if len(messages) > 1:
+            logger.error(
+                "Validation errors in multiple locations %s; "
+                "flattening may overwrite same-named fields",
+                list(messages),
+            )
+        # Strip the location level (e.g. {"json": {...}} -> {...})
+        flat = {
+            field: errors
+            for value in messages.values()
+            if isinstance(value, dict)
+            for field, errors in value.items()
+        }
+        messages = flat or messages
+
+    raise web.HTTPUnprocessableEntity(
+        body=json.dumps(messages),
+        headers=error_headers,
+        content_type="application/json",
+    )
+
+
+setup_aiohttp_apispec(app, error_callback=flat_error_handler)
+```
+
 ## 📝 Swagger UI Integration
 
 Enable Swagger UI by adding the `swagger_path` parameter:
