@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `use_kwargs` and `marshal_with` aliases (for `request_schema` and `response_schema`), restoring the `aiohttp-apispec` public API.
+- Compatibility shim for the deprecated `aiohttp-apispec` `locations=[...]` argument on `request_schema`: a single-element list is accepted with a `DeprecationWarning`; multiple locations raise `ValueError`.
+
+### Changed
+
+- **Breaking:** `request_schema` raises `TypeError` on unrecognized keyword arguments instead of silently ignoring them.
+- **Breaking:** when no schema targets the default key, `request["data"]` now defaults to `{}` instead of `[]`, matching `aiohttp-apispec` 2.x.
+- Expanded the "Migration from aiohttp-apispec" README section to cover all known behavioral differences (default parse location, unknown-field handling, schema merging, nested error messages, removed app keys).
+
 ## [0.7.1] - 2026-06-05
 
 ### Changed
