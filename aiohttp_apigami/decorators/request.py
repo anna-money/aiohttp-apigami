@@ -1,4 +1,5 @@
 import copy
+import warnings
 from collections.abc import Callable
 from functools import partial
 from typing import Any, Literal, TypeVar
@@ -35,10 +36,41 @@ VALID_SCHEMA_LOCATIONS = (
 T = TypeVar("T", bound=HandlerType)
 TDataclass = TypeVar("TDataclass", bound=IDataclass)
 
+# Default request location when neither `location` nor `locations` is provided
+_DEFAULT_LOCATION: ValidLocations = "json"
+
+# Sentinel to tell an explicit `location` apart from the default
+# when the deprecated `locations` kwarg is also passed
+_UNSET: Any = object()
+
+
+def _resolve_location(location: ValidLocations, kwargs: dict[str, Any]) -> ValidLocations:
+    """Resolve `location`, honoring the deprecated aiohttp-apispec `locations` kwarg."""
+    locations = kwargs.pop("locations", None)
+    if locations is None:
+        return _DEFAULT_LOCATION if location is _UNSET else location
+
+    warnings.warn(
+        "The `locations` argument is deprecated, use `location` instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    if location is not _UNSET:
+        raise ValueError("Use either `location` or `locations`, not both")
+    if not isinstance(locations, (list, tuple)):
+        raise TypeError(f"`locations` must be a list, got {type(locations).__name__}")
+    if len(locations) != 1:
+        raise ValueError(
+            f"`locations` must contain exactly one location, got {list(locations)}. "
+            f"Use a separate @request_schema(..., location=...) decorator per location"
+        )
+    result: ValidLocations = locations[0]
+    return result
+
 
 def request_schema(
     schema: SchemaType | type[TDataclass],
-    location: ValidLocations = "json",
+    location: ValidLocations = _UNSET,
     put_into: str | None = None,
     example: dict[str, Any] | None = None,
     add_to_refs: bool = False,
@@ -115,7 +147,13 @@ def request_schema(
     add_to_refs : bool, default=False
         Works only if example is not None. If True, adds example
         for ref schema. Otherwise, adds example to endpoint.
+
+    locations : list, optional
+        Deprecated aiohttp-apispec argument. A single-element list is
+        accepted as an alias for ``location``; webargs 8 cannot parse
+        multiple locations with one schema.
     """
+    location = _resolve_location(location, kwargs)
 
     if location not in VALID_SCHEMA_LOCATIONS:
         raise ValueError(f"Invalid location argument: {location}")
@@ -123,6 +161,8 @@ def request_schema(
     schema_instance = resolve_schema_instance(schema)
 
     options = {"required": kwargs.pop("required", False)}
+    if kwargs:
+        raise TypeError(f"request_schema() got unexpected keyword arguments: {sorted(kwargs)}")
 
     def wrapper(func: T) -> T:
         func_apispec = get_or_set_apispec(func)
@@ -156,6 +196,9 @@ def request_schema(
 
     return wrapper
 
+
+# Alias kept for code migrating from aiohttp-apispec
+use_kwargs = request_schema
 
 # Decorators for specific request data validations (shortenings)
 match_info_schema = partial(request_schema, location="match_info", put_into="match_info")

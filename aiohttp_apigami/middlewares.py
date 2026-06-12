@@ -77,8 +77,8 @@ async def validation_middleware(request: web.Request, handler: Handler) -> web.S
         else:
             logger.warning("Multiple schemas provided, but no put_into specified. Using the first one only.")
 
-    # For backward compatibility, if no validated data is provided, use the list
-    result = [] if result is _missing else result
+    # aiohttp-apispec 2.x stored an empty dict when no schema targeted the default key
+    result = {} if result is _missing else result
 
     # Store validated data in request object
     request[request.app[APISPEC_VALIDATED_DATA_NAME]] = result

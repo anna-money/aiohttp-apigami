@@ -87,3 +87,7 @@ def response_schema(
         return func
 
     return wrapper
+
+
+# Alias kept for code migrating from aiohttp-apispec
+marshal_with = response_schema
