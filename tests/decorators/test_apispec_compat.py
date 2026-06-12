@@ -26,23 +26,35 @@ class TestLocationsShim:
         assert handler.__schemas__[0].location == "querystring"  # type: ignore[attr-defined]
         assert handler.__apispec__["schemas"][0]["location"] == "querystring"  # type: ignore[attr-defined]
 
-    def test_multiple_locations_raise_value_error(self) -> None:
+    @pytest.mark.parametrize("bad_locations", [["querystring", "form"], []])
+    def test_non_single_locations_raise_value_error(self, bad_locations: list[str]) -> None:
         with (
             pytest.warns(DeprecationWarning),
-            pytest.raises(ValueError, match="Multiple locations are not supported"),
+            pytest.raises(ValueError, match="must contain exactly one location"),
         ):
 
-            @request_schema(RequestSchema, locations=["querystring", "form"])
+            @request_schema(RequestSchema, locations=bad_locations)
             async def handler(request: web.Request) -> web.Response:
                 return web.json_response({})
 
-    def test_location_and_locations_together_raise_value_error(self) -> None:
+    @pytest.mark.parametrize("explicit_location", ["form", "json"])
+    def test_location_and_locations_together_raise_value_error(self, explicit_location: str) -> None:
         with (
             pytest.warns(DeprecationWarning),
             pytest.raises(ValueError, match="not both"),
         ):
 
-            @request_schema(RequestSchema, location="form", locations=["querystring"])
+            @request_schema(RequestSchema, location=explicit_location, locations=["querystring"])  # type: ignore[arg-type]
+            async def handler(request: web.Request) -> web.Response:
+                return web.json_response({})
+
+    def test_non_list_locations_raise_type_error(self) -> None:
+        with (
+            pytest.warns(DeprecationWarning),
+            pytest.raises(TypeError, match="`locations` must be a list, got str"),
+        ):
+
+            @request_schema(RequestSchema, locations="querystring")
             async def handler(request: web.Request) -> web.Response:
                 return web.json_response({})
 

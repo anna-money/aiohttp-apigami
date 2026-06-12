@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `use_kwargs` and `marshal_with` aliases (for `request_schema` and `response_schema`), restoring the `aiohttp-apispec` public API.
 - Compatibility shim for the deprecated `aiohttp-apispec` `locations=[...]` argument on `request_schema`: a single-element list is accepted with a `DeprecationWarning`; multiple locations raise `ValueError`.
+- Built-in `flat_error_handler` error callback that restores the flat `aiohttp-apispec` 2.x validation error format (strips the webargs 8 location level from `error.messages`): `setup_aiohttp_apispec(app, error_callback=flat_error_handler)`.
 
 ### Changed
 

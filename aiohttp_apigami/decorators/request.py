@@ -36,10 +36,38 @@ VALID_SCHEMA_LOCATIONS = (
 T = TypeVar("T", bound=HandlerType)
 TDataclass = TypeVar("TDataclass", bound=IDataclass)
 
+# Sentinel to tell an explicit `location` apart from the default
+# when the deprecated `locations` kwarg is also passed
+_UNSET: Any = object()
+
+
+def _resolve_location(location: ValidLocations, kwargs: dict[str, Any]) -> ValidLocations:
+    """Resolve `location`, honoring the deprecated aiohttp-apispec `locations` kwarg."""
+    locations = kwargs.pop("locations", None)
+    if locations is None:
+        return "json" if location is _UNSET else location
+
+    warnings.warn(
+        "The `locations` argument is deprecated, use `location` instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    if location is not _UNSET:
+        raise ValueError("Use either `location` or `locations`, not both")
+    if not isinstance(locations, (list, tuple)):
+        raise TypeError(f"`locations` must be a list, got {type(locations).__name__}")
+    if len(locations) != 1:
+        raise ValueError(
+            f"`locations` must contain exactly one location, got {list(locations)}. "
+            f"Use a separate @request_schema(..., location=...) decorator per location"
+        )
+    result: ValidLocations = locations[0]
+    return result
+
 
 def request_schema(
     schema: SchemaType | type[TDataclass],
-    location: ValidLocations = "json",
+    location: ValidLocations = _UNSET,
     put_into: str | None = None,
     example: dict[str, Any] | None = None,
     add_to_refs: bool = False,
@@ -122,25 +150,7 @@ def request_schema(
         accepted as an alias for ``location``; webargs 8 cannot parse
         multiple locations with one schema.
     """
-    locations = kwargs.pop("locations", None)
-    if locations is not None:
-        warnings.warn(
-            "The `locations` argument is deprecated, use `location` instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if isinstance(locations, str) or not isinstance(locations, (list, tuple)):
-            raise TypeError("`locations` must be a list/tuple of location strings")
-        if location != "json":
-            raise ValueError("Use either `location` or `locations`, not both")
-        if len(locations) == 0:
-            raise ValueError("`locations` must contain exactly one location")
-        if len(locations) != 1:
-            raise ValueError(
-                f"Multiple locations are not supported: {locations}. "
-                f"Use a separate @request_schema(..., location=...) decorator per location"
-            )
-        location = locations[0]
+    location = _resolve_location(location, kwargs)
 
     if location not in VALID_SCHEMA_LOCATIONS:
         raise ValueError(f"Invalid location argument: {location}")

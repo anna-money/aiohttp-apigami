@@ -475,54 +475,15 @@ This affects:
 - Custom `error_callback` implementations that read `error.messages`
 - API clients that parse the default 422 response body
 
-If your API consumers depend on the old flat format, flatten the messages in a custom `error_callback`:
+If your API consumers depend on the old flat format, use the built-in `flat_error_handler`, which strips the location level and responds with 422 exactly like `aiohttp-apispec` 2.x:
 
 ```python
-import json
-import logging
-from typing import Any, NoReturn
-
-from aiohttp import web
-from marshmallow import Schema, ValidationError
-
-logger = logging.getLogger(__name__)
-
-
-def flat_error_handler(
-    error: ValidationError,
-    req: web.Request,
-    schema: Schema,
-    *args: Any,
-    error_status_code: int,
-    error_headers: dict[str, str],
-) -> NoReturn:
-    """Restore the flat aiohttp-apispec error format."""
-    messages = error.messages
-    if isinstance(messages, dict):
-        if len(messages) > 1:
-            logger.error(
-                "Validation errors in multiple locations %s; "
-                "flattening may overwrite same-named fields",
-                list(messages),
-            )
-        # Strip the location level (e.g. {"json": {...}} -> {...})
-        flat = {
-            field: errors
-            for value in messages.values()
-            if isinstance(value, dict)
-            for field, errors in value.items()
-        }
-        messages = flat or messages
-
-    raise web.HTTPUnprocessableEntity(
-        body=json.dumps(messages),
-        headers=error_headers,
-        content_type="application/json",
-    )
-
+from aiohttp_apigami import flat_error_handler, setup_aiohttp_apispec
 
 setup_aiohttp_apispec(app, error_callback=flat_error_handler)
 ```
+
+When validation fails in several locations at once, flattening may overwrite same-named fields — the handler logs an error in that case.
 
 ### Loud breaking changes (fail fast)
 
