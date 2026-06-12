@@ -129,8 +129,12 @@ def request_schema(
             DeprecationWarning,
             stacklevel=2,
         )
+        if isinstance(locations, str) or not isinstance(locations, (list, tuple)):
+            raise TypeError("`locations` must be a list/tuple of location strings")
         if location != "json":
             raise ValueError("Use either `location` or `locations`, not both")
+        if len(locations) == 0:
+            raise ValueError("`locations` must contain exactly one location")
         if len(locations) != 1:
             raise ValueError(
                 f"Multiple locations are not supported: {locations}. "
