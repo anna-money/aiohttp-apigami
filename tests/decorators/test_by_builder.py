@@ -53,6 +53,7 @@ def test_response_schema_with_builder() -> None:
     async def index(request: web.Request) -> web.Response:
         return web.json_response({})
 
+    assert hasattr(index, "__apispec__")
     response_spec = index.__apispec__["responses"]["200"]
     assert isinstance(response_spec["schema"], m.Schema)
     assert set(response_spec["schema"].fields) == {"id", "name"}
