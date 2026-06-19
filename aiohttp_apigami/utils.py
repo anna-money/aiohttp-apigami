@@ -63,34 +63,53 @@ def get_or_set_schemas(func: T) -> list[ValidationSchema]:
     return func_schemas
 
 
+def _resolve_schema_class(schema: type[m.Schema]) -> m.Schema:
+    """Instantiate a marshmallow Schema class."""
+    return schema()
+
+
+def _resolve_dataclass(schema: type[TDataclass]) -> m.Schema:
+    """Build a Schema from a dataclass (or a generic alias of one)."""
+    if mr is None:
+        raise RuntimeError(
+            "marshmallow-recipe is required for dataclass support. "
+            "Install it with `pip install aiohttp-apigami[dataclass]`."
+        )
+    return mr.schema(schema)
+
+
+def _resolve_schema_builder(schema: SchemaBuilder) -> m.Schema:
+    """Invoke a callable schema builder and validate its result."""
+    built = schema()
+    if not isinstance(built, m.Schema):
+        raise ValueError(f"Schema builder must return a marshmallow Schema instance, got {type(built).__name__}")
+    return built
+
+
+def _is_dataclass_schema(schema: Any) -> bool:
+    """Check if schema is a dataclass or a generic alias of one.
+
+    For generic aliases like ``MyClass = MyBaseClass[InnerType]``,
+    ``get_origin()`` returns ``MyBaseClass``.
+    """
+    origin = get_origin(schema)
+    return bool(is_dataclass(origin if origin is not None else schema))
+
+
 def resolve_schema_instance(schema: SchemaType | type[TDataclass] | SchemaBuilder) -> m.Schema:
-    if isinstance(schema, type) and issubclass(schema, m.Schema):
-        return schema()
-    if isinstance(schema, m.Schema):
-        return schema
-
-    # Check if schema is a dataclass or a generic alias of a dataclass
-    # For generic aliases like MyClass = MyBaseClass[InnerType], get_origin() returns MyBaseClass
-    schema_to_check = get_origin(schema) if get_origin(schema) is not None else schema
-
-    if is_dataclass(schema_to_check):
-        if mr is None:
-            raise RuntimeError(
-                "marshmallow-recipe is required for dataclass support. "
-                "Install it with `pip install aiohttp-apigami[dataclass]`."
-            )
-        return mr.schema(cast("type[TDataclass]", schema))
-
-    # A callable object (SchemaBuilder) that builds a Schema instance on call.
-    # Checked last so Schema classes and dataclass types (also callable) keep
-    # their dedicated handling above.
-    if callable(schema):
-        built = schema()
-        if not isinstance(built, m.Schema):
-            raise ValueError(f"Schema builder must return a marshmallow Schema instance, got {type(built).__name__}")
-        return built
-
-    raise ValueError(f"Invalid schema type: {schema}")
+    # Dataclass types and callables (Schema classes, builders) all overlap, so
+    # order matters: dedicated types first, the generic callable builder last.
+    match schema:
+        case type() as cls if issubclass(cls, m.Schema):
+            return _resolve_schema_class(cls)
+        case m.Schema():
+            return schema
+        case _ if _is_dataclass_schema(schema):
+            return _resolve_dataclass(cast("type[TDataclass]", schema))
+        case _ if callable(schema):
+            return _resolve_schema_builder(cast("SchemaBuilder", schema))
+        case _:
+            raise ValueError(f"Invalid schema type: {schema}")
 
 
 def make_json_serializable(value: Any) -> Any:
