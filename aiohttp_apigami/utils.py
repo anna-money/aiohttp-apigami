@@ -1,3 +1,4 @@
+import enum
 from dataclasses import is_dataclass
 from decimal import Decimal
 from inspect import isclass
@@ -96,19 +97,41 @@ def _is_dataclass_schema(schema: Any) -> bool:
     return bool(is_dataclass(origin if origin is not None else schema))
 
 
-def resolve_schema_instance(schema: SchemaType | type[TDataclass] | SchemaBuilder) -> m.Schema:
+class _SchemaKind(enum.Enum):
+    """How a value passed as a schema should be resolved into a Schema."""
+
+    SCHEMA_CLASS = enum.auto()
+    SCHEMA_INSTANCE = enum.auto()
+    DATACLASS = enum.auto()
+    BUILDER = enum.auto()
+    INVALID = enum.auto()
+
+
+def _classify_schema(schema: Any) -> _SchemaKind:
     # Dataclass types and callables (Schema classes, builders) all overlap, so
     # order matters: dedicated types first, the generic callable builder last.
-    match schema:
-        case type() as cls if issubclass(cls, m.Schema):
-            return _resolve_schema_class(cls)
-        case m.Schema():
-            return schema
-        case _ if _is_dataclass_schema(schema):
+    if isinstance(schema, type) and issubclass(schema, m.Schema):
+        return _SchemaKind.SCHEMA_CLASS
+    if isinstance(schema, m.Schema):
+        return _SchemaKind.SCHEMA_INSTANCE
+    if _is_dataclass_schema(schema):
+        return _SchemaKind.DATACLASS
+    if callable(schema):
+        return _SchemaKind.BUILDER
+    return _SchemaKind.INVALID
+
+
+def resolve_schema_instance(schema: SchemaType | type[TDataclass] | SchemaBuilder) -> m.Schema:
+    match _classify_schema(schema):
+        case _SchemaKind.SCHEMA_CLASS:
+            return _resolve_schema_class(cast("type[m.Schema]", schema))
+        case _SchemaKind.SCHEMA_INSTANCE:
+            return cast("m.Schema", schema)
+        case _SchemaKind.DATACLASS:
             return _resolve_dataclass(cast("type[TDataclass]", schema))
-        case _ if callable(schema):
+        case _SchemaKind.BUILDER:
             return _resolve_schema_builder(cast("SchemaBuilder", schema))
-        case _:
+        case _:  # _SchemaKind.INVALID
             raise ValueError(f"Invalid schema type: {schema}")
 
 
