@@ -4,7 +4,7 @@ from collections.abc import Callable
 from functools import partial
 from typing import Any, Literal, TypeVar
 
-from aiohttp_apigami.typedefs import HandlerType, IDataclass, SchemaType
+from aiohttp_apigami.typedefs import HandlerType, IDataclass, SchemaBuilder, SchemaType
 from aiohttp_apigami.utils import get_or_set_apispec, get_or_set_schemas, resolve_schema_instance
 from aiohttp_apigami.validation import ValidationSchema
 
@@ -69,7 +69,7 @@ def _resolve_location(location: ValidLocations, kwargs: dict[str, Any]) -> Valid
 
 
 def request_schema(
-    schema: SchemaType | type[TDataclass],
+    schema: SchemaType | type[TDataclass] | SchemaBuilder,
     location: ValidLocations = _UNSET,
     put_into: str | None = None,
     example: dict[str, Any] | None = None,
@@ -129,9 +129,11 @@ def request_schema(
 
     Parameters
     ----------
-    schema : Schema or dataclass
+    schema : Schema, dataclass or callable
         :class:`Schema <marshmallow.Schema>` class or instance,
-        or a Python dataclass. When using dataclasses, the
+        a Python dataclass, or a callable object (``SchemaBuilder``)
+        that returns a :class:`Schema <marshmallow.Schema>` instance
+        when called with no arguments. When using dataclasses, the
         marshmallow-recipe package is required.
 
     location : str, default="json"

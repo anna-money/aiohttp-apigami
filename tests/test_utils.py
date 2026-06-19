@@ -283,3 +283,36 @@ class TestResolveSchemaInstance:
         """Test with an invalid schema type."""
         with pytest.raises(ValueError, match="Invalid schema type:"):
             resolve_schema_instance("not a schema")  # type: ignore[arg-type]
+
+    def test_with_schema_builder(self) -> None:
+        """Test with a callable object that builds a Schema instance."""
+
+        class TestSchema(m.Schema):
+            field = m.fields.String()
+
+        class SchemaBuilder:
+            def __call__(self) -> m.Schema:
+                return TestSchema()
+
+        result = resolve_schema_instance(SchemaBuilder())
+        assert isinstance(result, m.Schema)
+        assert isinstance(result, TestSchema)
+
+    def test_with_schema_builder_lambda(self) -> None:
+        """Test with a plain lambda that builds a Schema instance."""
+
+        class TestSchema(m.Schema):
+            field = m.fields.String()
+
+        result = resolve_schema_instance(lambda: TestSchema())
+        assert isinstance(result, TestSchema)
+
+    def test_with_schema_builder_returning_non_schema(self) -> None:
+        """Test with a callable that does not return a Schema instance."""
+
+        class BadBuilder:
+            def __call__(self) -> m.Schema:
+                return "not a schema"  # type: ignore[return-value]
+
+        with pytest.raises(ValueError, match="must return a marshmallow Schema instance"):
+            resolve_schema_instance(BadBuilder())

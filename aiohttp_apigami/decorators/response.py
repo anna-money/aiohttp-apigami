@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TypeVar
 
-from aiohttp_apigami.typedefs import HandlerType, IDataclass, SchemaType
+from aiohttp_apigami.typedefs import HandlerType, IDataclass, SchemaBuilder, SchemaType
 from aiohttp_apigami.utils import get_or_set_apispec, get_or_set_schemas, resolve_schema_instance
 
 T = TypeVar("T", bound=HandlerType)
@@ -9,7 +9,7 @@ TDataclass = TypeVar("TDataclass", bound=IDataclass)
 
 
 def response_schema(
-    schema: SchemaType | type[TDataclass],
+    schema: SchemaType | type[TDataclass] | SchemaBuilder,
     code: int = 200,
     required: bool = False,
     description: str | None = None,
@@ -59,9 +59,11 @@ def response_schema(
 
     Parameters
     ----------
-    schema : Schema or dataclass
+    schema : Schema, dataclass or callable
         :class:`Schema <marshmallow.Schema>` class or instance,
-        or a Python dataclass. When using dataclasses, the
+        a Python dataclass, or a callable object (``SchemaBuilder``)
+        that returns a :class:`Schema <marshmallow.Schema>` instance
+        when called with no arguments. When using dataclasses, the
         marshmallow-recipe package is required.
 
     code : int, default=200

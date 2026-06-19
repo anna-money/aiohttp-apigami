@@ -12,6 +12,12 @@ SchemaType = type[m.Schema] | m.Schema
 SchemaNameResolver = Callable[[type[m.Schema]], str]
 
 
+class SchemaBuilder(Protocol):
+    """A callable object that builds a marshmallow Schema instance on call."""
+
+    def __call__(self) -> m.Schema: ...
+
+
 class IDataclass(Protocol):
     __dataclass_fields__: ClassVar[dict[str, dataclasses.Field[Any]]]
 

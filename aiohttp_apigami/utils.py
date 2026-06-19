@@ -2,7 +2,7 @@ from dataclasses import is_dataclass
 from decimal import Decimal
 from inspect import isclass
 from string import Formatter
-from typing import Any, TypeVar, get_origin
+from typing import Any, TypeVar, cast, get_origin
 
 import marshmallow as m
 from aiohttp import web
@@ -10,7 +10,7 @@ from aiohttp.abc import AbstractView
 from aiohttp.typedefs import Handler
 
 from .constants import API_SPEC_ATTR, SCHEMAS_ATTR
-from .typedefs import IDataclass, SchemaType
+from .typedefs import IDataclass, SchemaBuilder, SchemaType
 from .validation import ValidationSchema
 
 try:
@@ -63,7 +63,7 @@ def get_or_set_schemas(func: T) -> list[ValidationSchema]:
     return func_schemas
 
 
-def resolve_schema_instance(schema: SchemaType | type[TDataclass]) -> m.Schema:
+def resolve_schema_instance(schema: SchemaType | type[TDataclass] | SchemaBuilder) -> m.Schema:
     if isinstance(schema, type) and issubclass(schema, m.Schema):
         return schema()
     if isinstance(schema, m.Schema):
@@ -79,7 +79,16 @@ def resolve_schema_instance(schema: SchemaType | type[TDataclass]) -> m.Schema:
                 "marshmallow-recipe is required for dataclass support. "
                 "Install it with `pip install aiohttp-apigami[dataclass]`."
             )
-        return mr.schema(schema)
+        return mr.schema(cast("type[TDataclass]", schema))
+
+    # A callable object (SchemaBuilder) that builds a Schema instance on call.
+    # Checked last so Schema classes and dataclass types (also callable) keep
+    # their dedicated handling above.
+    if callable(schema):
+        built = schema()
+        if not isinstance(built, m.Schema):
+            raise ValueError(f"Schema builder must return a marshmallow Schema instance, got {type(built).__name__}")
+        return built
 
     raise ValueError(f"Invalid schema type: {schema}")
 
