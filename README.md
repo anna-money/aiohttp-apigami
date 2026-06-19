@@ -27,6 +27,7 @@ Think of **aiohttp-apigami** as the bridge between your aiohttp web services and
 - **Built-in Swagger UI**: Ready-to-use interactive documentation (currently <!-- SWAGGER_UI_VERSION_START -->[v5.32.6](https://github.com/swagger-api/swagger-ui/releases/tag/v5.32.6)<!-- SWAGGER_UI_VERSION_END -->)
 - **Class-Based View Support**: Fully compatible with aiohttp's CBV pattern
 - **Dataclass Support**: Use Python dataclasses directly as schemas for cleaner code
+- **Schema Builders**: Pass a callable that builds a `Schema` instance for custom construction
 
 > 💡 **aiohttp-apigami** builds upon the foundation of `aiohttp-apispec` (no longer maintained), with inspiration from the `flask-apispec` library.
 
@@ -350,6 +351,46 @@ This pattern is particularly useful for:
 - **Type safety**: Get proper type checking for response data
 - **Code reusability**: Define the wrapper once, use with different data types
 - **Better documentation**: Generic types are properly reflected in OpenAPI/Swagger docs
+
+## 🏭 Schema Builders (callable schemas)
+
+Besides a `Schema` class/instance or a dataclass, you can pass any **callable
+object that returns a `Schema` instance** when called with no arguments. This
+is handy when the schema needs custom construction — for example a
+marshmallow-recipe schema with a specific naming case:
+
+```python
+import marshmallow as m
+import marshmallow_recipe as mr
+from dataclasses import dataclass
+from aiohttp import web
+from aiohttp_apigami import request_schema
+
+
+@dataclass
+class RequestData:
+    id: int
+    name: str
+
+
+class SchemaBuilder:
+    def __init__(self, data_cls: type) -> None:
+        self._data_cls = data_cls
+
+    def __call__(self) -> m.Schema:
+        return mr.schema(self._data_cls, naming_case=mr.CAPITAL_CAMEL_CASE)
+
+
+@request_schema(SchemaBuilder(RequestData))
+async def dataclass_handler(request: web.Request):
+    data: RequestData = request["data"]
+    return web.json_response({"message": "Success", "data": {"id": data.id, "name": data.name}})
+```
+
+The builder is invoked once, at decoration time, and the resulting schema is
+used for both validation and OpenAPI documentation. A plain `lambda: MySchema()`
+works too. The callable must return a `marshmallow.Schema` instance; anything
+else raises a `ValueError`.
 
 ## 🛡️ Custom Error Handling
 

@@ -1,8 +1,9 @@
+import enum
 from dataclasses import is_dataclass
 from decimal import Decimal
 from inspect import isclass
 from string import Formatter
-from typing import Any, TypeVar, get_origin
+from typing import Any, TypeVar, cast, get_origin
 
 import marshmallow as m
 from aiohttp import web
@@ -10,7 +11,7 @@ from aiohttp.abc import AbstractView
 from aiohttp.typedefs import Handler
 
 from .constants import API_SPEC_ATTR, SCHEMAS_ATTR
-from .typedefs import IDataclass, SchemaType
+from .typedefs import IDataclass, SchemaBuilder, SchemaType
 from .validation import ValidationSchema
 
 try:
@@ -63,25 +64,75 @@ def get_or_set_schemas(func: T) -> list[ValidationSchema]:
     return func_schemas
 
 
-def resolve_schema_instance(schema: SchemaType | type[TDataclass]) -> m.Schema:
+def _resolve_schema_class(schema: type[m.Schema]) -> m.Schema:
+    """Instantiate a marshmallow Schema class."""
+    return schema()
+
+
+def _resolve_dataclass(schema: type[TDataclass]) -> m.Schema:
+    """Build a Schema from a dataclass (or a generic alias of one)."""
+    if mr is None:
+        raise RuntimeError(
+            "marshmallow-recipe is required for dataclass support. "
+            "Install it with `pip install aiohttp-apigami[dataclass]`."
+        )
+    return mr.schema(schema)
+
+
+def _resolve_schema_builder(schema: SchemaBuilder) -> m.Schema:
+    """Invoke a callable schema builder and validate its result."""
+    built = schema()
+    if not isinstance(built, m.Schema):
+        raise ValueError(f"Schema builder must return a marshmallow Schema instance, got {type(built).__name__}")
+    return built
+
+
+def _is_dataclass_schema(schema: Any) -> bool:
+    """Check if schema is a dataclass or a generic alias of one.
+
+    For generic aliases like ``MyClass = MyBaseClass[InnerType]``,
+    ``get_origin()`` returns ``MyBaseClass``.
+    """
+    origin = get_origin(schema)
+    return bool(is_dataclass(origin if origin is not None else schema))
+
+
+class _SchemaKind(enum.Enum):
+    """How a value passed as a schema should be resolved into a Schema."""
+
+    SCHEMA_CLASS = enum.auto()
+    SCHEMA_INSTANCE = enum.auto()
+    DATACLASS = enum.auto()
+    BUILDER = enum.auto()
+    INVALID = enum.auto()
+
+
+def _classify_schema(schema: Any) -> _SchemaKind:
+    # Dataclass types and callables (Schema classes, builders) all overlap, so
+    # order matters: dedicated types first, the generic callable builder last.
     if isinstance(schema, type) and issubclass(schema, m.Schema):
-        return schema()
+        return _SchemaKind.SCHEMA_CLASS
     if isinstance(schema, m.Schema):
-        return schema
+        return _SchemaKind.SCHEMA_INSTANCE
+    if _is_dataclass_schema(schema):
+        return _SchemaKind.DATACLASS
+    if callable(schema):
+        return _SchemaKind.BUILDER
+    return _SchemaKind.INVALID
 
-    # Check if schema is a dataclass or a generic alias of a dataclass
-    # For generic aliases like MyClass = MyBaseClass[InnerType], get_origin() returns MyBaseClass
-    schema_to_check = get_origin(schema) if get_origin(schema) is not None else schema
 
-    if is_dataclass(schema_to_check):
-        if mr is None:
-            raise RuntimeError(
-                "marshmallow-recipe is required for dataclass support. "
-                "Install it with `pip install aiohttp-apigami[dataclass]`."
-            )
-        return mr.schema(schema)
-
-    raise ValueError(f"Invalid schema type: {schema}")
+def resolve_schema_instance(schema: SchemaType | type[TDataclass] | SchemaBuilder) -> m.Schema:
+    match _classify_schema(schema):
+        case _SchemaKind.SCHEMA_CLASS:
+            return _resolve_schema_class(cast("type[m.Schema]", schema))
+        case _SchemaKind.SCHEMA_INSTANCE:
+            return cast("m.Schema", schema)
+        case _SchemaKind.DATACLASS:
+            return _resolve_dataclass(cast("type[TDataclass]", schema))
+        case _SchemaKind.BUILDER:
+            return _resolve_schema_builder(cast("SchemaBuilder", schema))
+        case _:  # _SchemaKind.INVALID
+            raise ValueError(f"Invalid schema type: {schema}")
 
 
 def make_json_serializable(value: Any) -> Any:

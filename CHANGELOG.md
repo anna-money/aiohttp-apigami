@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support for callable objects ("schema builders") as a schema type: `request_schema` / `response_schema` now accept any callable that returns a `marshmallow.Schema` instance when called with no arguments, alongside `Schema` classes/instances and dataclasses. Resolves [#41](https://github.com/anna-money/aiohttp-apigami/issues/41) ([#123](https://github.com/anna-money/aiohttp-apigami/pull/123)).
+
 ## [0.8.0] - 2026-06-12
 
 ### Added
