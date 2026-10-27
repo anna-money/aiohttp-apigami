@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-27
+
 ### Added
 
-- Python 3.15 support.
+- Python 3.15 support ([#148](https://github.com/anna-money/aiohttp-apigami/pull/148)).
+
+### Changed
+
+- Updated Swagger UI to v5.34.0 ([#145](https://github.com/anna-money/aiohttp-apigami/pull/145)).
 
 ## [0.10.0] - 2026-10-27
 
