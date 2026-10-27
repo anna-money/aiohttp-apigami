@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Number fields with `as_string=True` (e.g. `fields.Decimal(as_string=True)`, which marshmallow-recipe uses for every `Decimal`) are documented as `type: string` instead of `number`. apispec maps fields by class and ignores `as_string`, so clients that validate responses against the spec, such as MCP clients checking `structuredContent` against `outputSchema`, rejected them. Range bounds on such fields are emitted as `x-minimum`/`x-maximum`, since `minimum`/`maximum` apply only to numbers ([#146](https://github.com/anna-money/aiohttp-apigami/pull/146)).
+
 ## [0.9.0] - 2026-06-19
 
 ### Added
