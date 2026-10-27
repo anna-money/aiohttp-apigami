@@ -15,9 +15,6 @@ _BODY_LOCATIONS = {"body", "json"}
 
 class ApigamiConverter(OpenAPIConverter):
     def field2type_and_format(self, field: m.fields.Field, **kwargs: Any) -> dict[str, Any]:
-        # apispec maps fields by class and ignores `as_string`. Typing string-dumped numbers here, before the other
-        # attribute functions run, lets apispec derive the bounds (`x-minimum`/`x-maximum`) and the nullability of
-        # the OpenAPI version from the right type.
         if isinstance(field, m.fields.Number) and field.as_string:
             return {"type": "string"}
         return super().field2type_and_format(field, **kwargs)
