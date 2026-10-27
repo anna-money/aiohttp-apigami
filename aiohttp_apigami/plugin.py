@@ -4,6 +4,7 @@ from typing import Any
 import marshmallow as m
 from apispec.core import VALID_METHODS
 from apispec.ext.marshmallow import MarshmallowPlugin
+from apispec.ext.marshmallow.openapi import OpenAPIConverter
 
 from aiohttp_apigami.constants import API_SPEC_ATTR
 from aiohttp_apigami.typedefs import HandlerType
@@ -12,7 +13,19 @@ from aiohttp_apigami.utils import get_path_keys
 _BODY_LOCATIONS = {"body", "json"}
 
 
+class ApigamiConverter(OpenAPIConverter):
+    def field2type_and_format(self, field: m.fields.Field, **kwargs: Any) -> dict[str, Any]:
+        # apispec maps fields by class and ignores `as_string`. Typing string-dumped numbers here, before the other
+        # attribute functions run, lets apispec derive the bounds (`x-minimum`/`x-maximum`) and the nullability of
+        # the OpenAPI version from the right type.
+        if isinstance(field, m.fields.Number) and field.as_string:
+            return {"type": "string"}
+        return super().field2type_and_format(field, **kwargs)
+
+
 class ApigamiPlugin(MarshmallowPlugin):
+    Converter = ApigamiConverter
+
     def _path_parameters(self, path_key: str) -> dict[str, Any]:
         """
         Create path parameters based on OpenAPI/Swagger spec.
